@@ -6,7 +6,7 @@ import { UsersModule } from './users/users.module';
 import { ProjectsModule } from './projects/projects.module';
 import { ServersModule } from './servers/servers.module';
 import { ActionsModule } from './actions/actions.module';
-import { LogsModule } from './logs/logs.module';
+
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { UserProjectsModule } from './user-projects/user-projects.module';
@@ -37,7 +37,6 @@ import { RedisModule } from './redis/redis.module';
     ProjectsModule,
     ServersModule,
     ActionsModule,
-    LogsModule,
     UserProjectsModule,
   ],
   controllers: [AppController],
