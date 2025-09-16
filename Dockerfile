@@ -15,6 +15,36 @@ COPY . .
 # Build the application
 RUN npm run build
 
+# Development stage
+FROM node:22-alpine AS development
+
+WORKDIR /app
+
+# Install curl for health checks
+RUN apk add --no-cache curl
+
+# Copy package files first (for better caching)
+COPY package.json package-lock.json ./
+
+# Install all dependencies (including dev dependencies)
+RUN npm ci
+
+# Don't copy source code here - it will be mounted via volume
+# This allows hot reload to work properly
+
+# Create dist directory with proper permissions
+RUN mkdir -p dist && chmod 755 dist
+
+# Expose port
+EXPOSE 3000
+
+# Health check for development
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3000/health || exit 1
+
+# Start in development mode
+CMD ["npm", "run", "start:dev:verbose"]
+
 # Production stage
 FROM node:22-alpine AS production
 

@@ -5,6 +5,7 @@ import { UsersController } from './users.controller';
 import { User } from './entities/user.entity';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { AuthModule } from '../auth/auth.module';
+import { AdminInitService } from './services/admin-init.service';
 
 @Module({
   imports: [
@@ -12,7 +13,7 @@ import { AuthModule } from '../auth/auth.module';
     forwardRef(() => AuthModule), // Use forwardRef to avoid circular dependency
   ],
   controllers: [UsersController],
-  providers: [UsersService, RolesGuard],
-  exports: [UsersService],
+  providers: [UsersService, RolesGuard, AdminInitService],
+  exports: [UsersService, AdminInitService],
 })
 export class UsersModule {}

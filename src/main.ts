@@ -3,12 +3,18 @@ import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
-import morgan from 'morgan'
+import morgan from 'morgan';
+import { AdminInitService } from './users/services/admin-init.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.use(cookieParser());
   app.use(morgan(':method :url :status :res[content-length] - :response-time ms'));
+  
+  // Inicializar usuario admin si las variables de entorno están configuradas
+  const adminInitService = app.get(AdminInitService);
+  await adminInitService.initializeAdminUser();
+  
   const config = new DocumentBuilder()
     .setTitle('Coolify Management API Docs')
     .setDescription('API para gestionar usuarios, proyectos y acciones sobre Coolify')

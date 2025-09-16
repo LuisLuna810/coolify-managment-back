@@ -13,6 +13,7 @@ import { UserProjectsModule } from './user-projects/user-projects.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { APP_GUARD } from '@nestjs/core';
+import { RedisModule } from './redis/redis.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { APP_GUARD } from '@nestjs/core';
       autoLoadEntities: true,
       synchronize: true,
     }),
+    RedisModule,
     AuthModule,
     UsersModule,
     ProjectsModule,

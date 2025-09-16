@@ -3,6 +3,17 @@
   "collection": "@nestjs/schematics",
   "sourceRoot": "src",
   "compilerOptions": {
-    "deleteOutDir": true
-  }
+    "deleteOutDir": false,
+    "watchMode": true,
+    "assets": [
+      {
+        "include": "**/*.json",
+        "outDir": "dist",
+        "watchAssets": true
+      }
+    ]
+  },
+  "projects": {},
+  "monorepo": false,
+  "root": "."
 }

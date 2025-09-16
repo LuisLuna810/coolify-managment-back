@@ -1,5 +1,6 @@
 import { Injectable, HttpException } from '@nestjs/common';
 import axios from 'axios';
+import { log } from 'console';
 
 @Injectable()
 export class CoolifyService {
@@ -26,7 +27,6 @@ export class CoolifyService {
       const { data } = await axios.get(`${this.baseUrl}/api/v1/applications/${appId}`, {
         headers: this.headers,
       });
-      
       return data;
     } catch (err) {
       throw new HttpException('Error fetching project status from Coolify', 500);

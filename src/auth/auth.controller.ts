@@ -3,6 +3,9 @@ import type { Response } from 'express'
 import { AuthService } from './auth.service'
 import { JwtService } from '@nestjs/jwt'
 import { JwtAuthGuard } from './guards/jwt-auth.guard'
+import { RolesGuard } from './guards/roles.guard'
+import { RateLimitGuard } from './guards/rate-limit.guard'
+import { Roles } from './decorators/roles.decorator'
 
 // Extend Request type to include user property
 interface RequestWithUser extends Express.Request {
@@ -17,6 +20,7 @@ export class AuthController {
     ) { }
 
     @Post('login')
+    @UseGuards(RateLimitGuard)
     async login(
         @Body() body: { email: string; password: string },
         @Res({ passthrough: true }) res: Response,
@@ -47,6 +51,20 @@ export class AuthController {
         @Body() body: { email: string; password: string; role: 'admin' | 'developer' },
     ) {
         return await this.authService.register(body)
+    }
+
+    @UseGuards(RolesGuard)
+    @Roles('admin')
+    @Post('register-developer')
+    async registerDeveloper(
+        @Body() body: { email: string; password: string; username: string },
+    ) {
+        const userData = {
+            ...body,
+            role: 'developer' as const,
+            isActive: true,
+        }
+        return await this.authService.register(userData)
     }
 
     @Get('me')
