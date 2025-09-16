@@ -27,76 +27,10 @@ export class CoolifyService {
         headers: this.headers,
       });
       
-      // Si el git_commit_sha es "HEAD", intenta obtener el SHA real
-      if (data.git_commit_sha === "HEAD") {
-        try {
-          // Intenta diferentes métodos para obtener el SHA real
-          const realSha = await this.getRealCommitSha(appId, data);
-          if (realSha) {
-            data.git_commit_sha = realSha;
-          }
-        } catch (shaError) {
-          console.log('Could not resolve real commit SHA:', shaError.message);
-        }
-      }
-      
       return data;
     } catch (err) {
       throw new HttpException('Error fetching project status from Coolify', 500);
     }
-  }
-
-  private async getRealCommitSha(appId: string, applicationData: any): Promise<string | null> {
-    // Estrategia 1: Intentar obtener el SHA desde los deployments
-    try {
-      const deployments = await this.getProjectDeployments(appId);
-      if (deployments && deployments.length > 0) {
-        // Buscar el deployment más reciente exitoso
-        const latestDeployment = deployments
-          .filter((d: any) => d.status === 'success' || d.status === 'finished')
-          .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
-        
-        if (latestDeployment && latestDeployment.commit_sha && latestDeployment.commit_sha !== 'HEAD') {
-          return latestDeployment.commit_sha;
-        }
-      }
-    } catch (error) {
-      console.log('Deployments approach failed:', error.message);
-    }
-
-    // Estrategia 2: Intentar obtener el SHA desde los contenedores
-    try {
-      const containers = await this.getProjectContainers(appId);
-      if (containers && containers.length > 0) {
-        for (const container of containers) {
-          if (container.labels && container.labels['coolify.commit']) {
-            return container.labels['coolify.commit'];
-          }
-        }
-      }
-    } catch (error) {
-      console.log('Containers approach failed:', error.message);
-    }
-
-    // Estrategia 3: Intentar extraer del nombre de la imagen del contenedor
-    try {
-      const containers = await this.getProjectContainers(appId);
-      if (containers && containers.length > 0) {
-        for (const container of containers) {
-          if (container.image && container.image.includes(':')) {
-            const tag = container.image.split(':').pop();
-            // Si el tag parece un SHA (40 caracteres hexadecimales o 7-8 caracteres cortos)
-            if (tag && (tag.match(/^[a-f0-9]{40}$/) || tag.match(/^[a-f0-9]{7,8}$/))) {
-              return tag;
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.log('Image tag approach failed:', error.message);
-    }
-
-    return null;
   }
 
   async startProject(appId: string) {
