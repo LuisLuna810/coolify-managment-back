@@ -58,15 +58,29 @@ if [[ ! -f "package.json" ]]; then
     exit 1
 fi
 
-# Construir la imagen
+# Preparar aplicación (build local)
+echo -e "${GREEN}🔨 Preparando aplicación...${NC}"
+if [[ ! -d "dist" ]]; then
+    echo -e "${YELLOW}📦 Construyendo aplicación localmente...${NC}"
+    npm install
+    npm run build
+fi
+
+# Construir la imagen (usar Dockerfile original con production target)
 echo -e "${GREEN}🔨 Construyendo imagen Docker...${NC}"
-docker build -f Dockerfile.optimized --target production -t "$FULL_IMAGE_NAME" .
+docker build --target production -t "$FULL_IMAGE_NAME" .
 
 if [[ $? -eq 0 ]]; then
     echo -e "${GREEN}✅ Imagen construida exitosamente: $FULL_IMAGE_NAME${NC}"
 else
     echo -e "${RED}❌ Error al construir la imagen${NC}"
-    exit 1
+    echo -e "${YELLOW}💡 Intentando con Dockerfile simple...${NC}"
+    
+    # Fallback: usar Dockerfile simple si el multi-stage falla
+    docker build -f Dockerfile.simple -t "$FULL_IMAGE_NAME" . || {
+        echo -e "${RED}❌ Error: No se pudo construir la imagen${NC}"
+        exit 1
+    }
 fi
 
 # Mostrar información de la imagen
