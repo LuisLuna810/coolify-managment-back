@@ -97,17 +97,23 @@ export class ProjectsService {
     return projects;
   }
 
-  async findAvailableProjects() {
-    const cacheKey = 'projects:available';
+  async findAvailableProjects(userId: string) {
+    const cacheKey = `projects:available:${userId}`;
     
     // Intentar obtener del cache primero
     let projects = await this.redisService.getJson<Project[]>(cacheKey);
     
     if (!projects) {
       // Si no está en cache, buscar en base de datos
+      // Devuelve proyectos que NO están asignados a este usuario específico
       projects = await this.projectRepository
         .createQueryBuilder('project')
-        .leftJoin('user_projects', 'up', 'up.projectId = project.id')
+        .leftJoin(
+          'user_projects',
+          'up',
+          'up.projectId = project.id AND up.userId = :userId',
+          { userId }
+        )
         .where('up.projectId IS NULL')
         .getMany();
       

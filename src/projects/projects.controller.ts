@@ -29,9 +29,9 @@ export class ProjectsController {
   }
 
   @Roles('admin')
-  @Get('available')
-  async getAvailableProjects() {
-    return this.projectsService.findAvailableProjects();
+  @Get('available/:userId')
+  async getAvailableProjects(@Param('userId') userId: string) {
+    return this.projectsService.findAvailableProjects(userId);
   }
 
   @Roles('admin')
