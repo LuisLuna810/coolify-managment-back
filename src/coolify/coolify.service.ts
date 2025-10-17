@@ -141,12 +141,64 @@ export class CoolifyService {
     }
   }
 
-  async getLogs(appId: string, lines = 100): Promise<string[]> {
+  async getContainers(appId: string): Promise<any[]> {
     try {
       const { data } = await axios.get(
-        `${this.baseUrl}/api/v1/applications/${appId}/logs?lines=${lines}`,
+        `${this.baseUrl}/api/v1/applications/${appId}`,
         { headers: this.headers },
       );
+      
+      // Extraer información de contenedores del response
+      const containers: any[] = [];
+      
+      // Contenedor principal de la aplicación
+      if (data.uuid) {
+        containers.push({
+          id: data.uuid,
+          name: data.name || 'Main Application',
+          type: 'application',
+          status: data.status
+        });
+      }
+      
+      // Servicios adicionales (databases, redis, etc.)
+      if (data.services && Array.isArray(data.services)) {
+        data.services.forEach((service: any) => {
+          containers.push({
+            id: service.uuid || service.id,
+            name: service.name || service.type || 'Service',
+            type: service.type || 'service',
+            status: service.status
+          });
+        });
+      }
+      
+      // Bases de datos standalone
+      if (data.standalone_databases && Array.isArray(data.standalone_databases)) {
+        data.standalone_databases.forEach((db: any) => {
+          containers.push({
+            id: db.uuid || db.id,
+            name: db.name || `${db.type} Database`,
+            type: 'database',
+            status: db.status
+          });
+        });
+      }
+      
+      return containers;
+    } catch (err) {
+      throw new HttpException('Error fetching containers from Coolify', 500);
+    }
+  }
+
+  async getLogs(appId: string, lines = 100, containerId?: string): Promise<string[]> {
+    try {
+      // Si se especifica un containerId, obtener logs de ese contenedor específico
+      const endpoint = containerId 
+        ? `${this.baseUrl}/api/v1/applications/${appId}/logs?container=${containerId}&lines=${lines}`
+        : `${this.baseUrl}/api/v1/applications/${appId}/logs?lines=${lines}`;
+      
+      const { data } = await axios.get(endpoint, { headers: this.headers });
       return data.logs || [];
     } catch (err) {
       throw new HttpException('Error fetching logs from Coolify', 500);

@@ -49,14 +49,21 @@ export class ActionsController {
   }
 
   @Roles('admin', 'developer')
+  @Get(':projectId/containers')
+  getContainers(@Request() req, @Param('projectId') projectId: string) {
+    return this.actionsService.getContainers(req.user, projectId);
+  }
+
+  @Roles('admin', 'developer')
   @Get(':projectId/logs')
   getLogs(
     @Request() req,
     @Param('projectId') projectId: string,
     @Query('lines') lines?: string,
+    @Query('container') container?: string,
   ) {
     const linesNum = lines ? parseInt(lines, 10) : 100;
-    return this.actionsService.getLogs(req.user, projectId, linesNum);
+    return this.actionsService.getLogs(req.user, projectId, linesNum, container);
   }
 
 }

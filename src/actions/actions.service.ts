@@ -100,13 +100,24 @@ export class ActionsService {
   }
 
 
-  async getLogs(user: any, projectId: string, lines = 100) {
+  async getContainers(user: any, projectId: string) {
     await this.checkAccess(user.userId, projectId, user.role);
 
     const project = await this.projectsService.findOne(projectId);
     if (!project) throw new NotFoundException('Proyecto no encontrado');
 
-    const logs = await this.coolifyService.getLogs(project.coolifyAppId, lines);
+    const containers = await this.coolifyService.getContainers(project.coolifyAppId);
+
+    return { containers };
+  }
+
+  async getLogs(user: any, projectId: string, lines = 100, containerId?: string) {
+    await this.checkAccess(user.userId, projectId, user.role);
+
+    const project = await this.projectsService.findOne(projectId);
+    if (!project) throw new NotFoundException('Proyecto no encontrado');
+
+    const logs = await this.coolifyService.getLogs(project.coolifyAppId, lines, containerId);
 
     await this.logAction(user.userId, projectId, 'get-logs');
 
