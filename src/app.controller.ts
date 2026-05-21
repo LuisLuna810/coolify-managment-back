@@ -1,9 +1,13 @@
 import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service';
+import { HealthService } from './health/health.service';
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(
+    private readonly appService: AppService,
+    private readonly healthService: HealthService,
+  ) {}
 
   @Get()
   getHello(): string {
@@ -12,11 +16,6 @@ export class AppController {
 
   @Get('health')
   healthCheck() {
-    return {
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      service: 'coolify-management-backend'
-    };
+    return this.healthService.getHealth();
   }
 }

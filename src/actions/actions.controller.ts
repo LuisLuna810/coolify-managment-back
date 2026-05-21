@@ -66,4 +66,17 @@ export class ActionsController {
     return this.actionsService.getLogs(req.user, projectId, linesNum, container);
   }
 
+  @Roles('admin', 'developer')
+  @Get(':projectId/deployments')
+  listDeployments(
+    @Request() req,
+    @Param('projectId') projectId: string,
+    @Query('take') take?: string,
+    @Query('skip') skip?: string,
+  ) {
+    const t = take ? parseInt(take, 10) : 10;
+    const s = skip ? parseInt(skip, 10) : 0;
+    return this.actionsService.listDeployments(req.user, projectId, t, s);
+  }
+
 }

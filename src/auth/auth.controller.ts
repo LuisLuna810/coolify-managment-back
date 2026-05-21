@@ -6,6 +6,8 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard'
 import { RolesGuard } from './guards/roles.guard'
 import { RateLimitGuard } from './guards/rate-limit.guard'
 import { Roles } from './decorators/roles.decorator'
+import { LoginDto } from './dto/login.dto'
+import { RegisterDto, RegisterDeveloperDto } from './dto/register.dto'
 
 // Extend Request type to include user property
 interface RequestWithUser extends Express.Request {
@@ -22,7 +24,7 @@ export class AuthController {
     @Post('login')
     @UseGuards(RateLimitGuard)
     async login(
-        @Body() body: { email: string; password: string },
+        @Body() body: LoginDto,
         @Res({ passthrough: true }) res: Response,
     ) {
         const user = await this.authService.validateUser(body.email, body.password)
@@ -47,18 +49,14 @@ export class AuthController {
     }
 
     @Post('register')
-    async register(
-        @Body() body: { email: string; password: string; role: 'admin' | 'developer' },
-    ) {
+    async register(@Body() body: RegisterDto) {
         return await this.authService.register(body)
     }
 
     @UseGuards(RolesGuard)
     @Roles('admin')
     @Post('register-developer')
-    async registerDeveloper(
-        @Body() body: { email: string; password: string; username: string },
-    ) {
+    async registerDeveloper(@Body() body: RegisterDeveloperDto) {
         const userData = {
             ...body,
             role: 'developer' as const,

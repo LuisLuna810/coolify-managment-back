@@ -13,8 +13,9 @@ import { TokenValidationService } from './services/token-validation.service';
     PassportModule,
     JwtModule.register({
       global: true,
-      secret: process.env.JWT_SECRET || 'secretKey',
-      signOptions: { expiresIn: '30d' }, // Token expires in 30 days (1 month)
+      // JWT_SECRET ya fue validado en bootstrap (main.ts). No usar fallback.
+      secret: process.env.JWT_SECRET,
+      signOptions: { expiresIn: '30d' },
     }),
   ],
   providers: [AuthService, JwtStrategy, TokenValidationService],

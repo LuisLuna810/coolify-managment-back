@@ -1,34 +1,70 @@
-import { Injectable, HttpException } from '@nestjs/common';
+import { Injectable, HttpException, Logger } from '@nestjs/common';
 import axios from 'axios';
-import { log } from 'console';
+import { RedisService } from '../redis/redis.service';
 
 @Injectable()
 export class CoolifyService {
+  private readonly logger = new Logger(CoolifyService.name);
   private readonly baseUrl = process.env.COOLIFY_URL || 'http://localhost:3000';
   private readonly apiKey = process.env.COOLIFY_API_KEY;
 
+  // Cache TTLs (segundos). Cortos para que el dashboard se sienta vivo pero
+  // suficientemente largos para deduplicar el thundering herd cuando todos los
+  // cards piden status al mismo tiempo al cargar la página.
+  private static readonly CACHE_TTL_STATUS = 15;
+  private static readonly CACHE_TTL_DEPLOYMENT = 10;
+
+  constructor(private readonly redisService: RedisService) {}
+
   private get headers() {
     return { Authorization: `Bearer ${this.apiKey}` };
+  }
+
+  /** Invalida el cache de un app (llamar después de start/stop/restart) */
+  async invalidateCache(appId: string) {
+    await Promise.all([
+      this.redisService.del(`coolify:status:${appId}`),
+      this.redisService.del(`coolify:deploy:latest:${appId}`),
+    ]);
+  }
+
+  private logAxiosError(context: string, err: any) {
+    if (axios.isAxiosError(err)) {
+      this.logger.error(
+        `[${context}] ${err.message} | url=${err.config?.url} | status=${err.response?.status} | body=${JSON.stringify(err.response?.data)}`,
+      );
+    } else {
+      this.logger.error(`[${context}] ${err?.message || err}`);
+    }
   }
 
   async getProjects(): Promise<any[]> {
     try {
       const { data } = await axios.get(`${this.baseUrl}/api/v1/applications`, {
         headers: this.headers,
+        timeout: 10000,
       });
       return data;
     } catch (err) {
+      this.logAxiosError('getProjects', err);
       throw new HttpException('Error fetching projects from Coolify', 500);
     }
   }
 
   async getProjectStatus(appId: string): Promise<any> {
+    const cacheKey = `coolify:status:${appId}`;
+    const cached = await this.redisService.getJson<any>(cacheKey);
+    if (cached) return cached;
+
     try {
       const { data } = await axios.get(`${this.baseUrl}/api/v1/applications/${appId}`, {
         headers: this.headers,
+        timeout: 10000,
       });
+      await this.redisService.setJson(cacheKey, data, CoolifyService.CACHE_TTL_STATUS);
       return data;
     } catch (err) {
+      this.logAxiosError('getProjectStatus', err);
       throw new HttpException('Error fetching project status from Coolify', 500);
     }
   }
@@ -49,24 +85,47 @@ export class CoolifyService {
     return axios.post(`${this.baseUrl}/api/v1/applications/${appId}/pull`, {}, { headers: this.headers });
   }
 
-  async getProjectDeployments(appId: string): Promise<any> {
+  async getApplicationDeployments(
+    appId: string,
+    take = 10,
+    skip = 0,
+  ): Promise<{ count: number; deployments: any[] }> {
     try {
-      // Intenta obtener los deployments de la aplicación
-      const { data } = await axios.get(`${this.baseUrl}/api/v1/applications/${appId}/deployments`, {
-        headers: this.headers,
-      });
+      const { data } = await axios.get(
+        `${this.baseUrl}/api/v1/deployments/applications/${appId}`,
+        {
+          headers: this.headers,
+          params: { take, skip },
+          timeout: 10000,
+        },
+      );
       return data;
     } catch (err) {
-      console.log('Deployments endpoint not available, trying alternative...');
-      // Si no existe, intenta obtener logs que pueden contener información del commit
-      try {
-        const { data } = await axios.get(`${this.baseUrl}/api/v1/applications/${appId}/logs`, {
-          headers: this.headers,
-        });
-        return data;
-      } catch (logErr) {
-        throw new HttpException('Error fetching deployment information from Coolify', 500);
-      }
+      this.logAxiosError('getApplicationDeployments', err);
+      throw new HttpException('Error fetching deployments from Coolify', 500);
+    }
+  }
+
+  async getLatestDeployment(appId: string): Promise<any | null> {
+    const cacheKey = `coolify:deploy:latest:${appId}`;
+    const cached = await this.redisService.getJson<any>(cacheKey);
+    if (cached !== null) return cached;
+
+    try {
+      const { deployments } = await this.getApplicationDeployments(appId, 1, 0);
+      const latest = deployments?.[0] || null;
+      // Si el deploy actual está en curso, TTL más corto para detectar el
+      // cambio a finished/failed rápido. Si ya terminó, TTL normal.
+      const isInProgress =
+        latest?.status === 'in_progress' || latest?.status === 'queued';
+      const ttl = isInProgress
+        ? 5
+        : CoolifyService.CACHE_TTL_DEPLOYMENT;
+      await this.redisService.setJson(cacheKey, latest, ttl);
+      return latest;
+    } catch (err) {
+      this.logger.warn(`getLatestDeployment failed for ${appId}: ${err?.message}`);
+      return null;
     }
   }
 

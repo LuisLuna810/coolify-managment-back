@@ -3,12 +3,14 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { User } from './entities/user.entity'
 import * as bcrypt from 'bcrypt'
+import { RedisService } from '../redis/redis.service'
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly redisService: RedisService,
   ) { }
 
   findAll(): Promise<User[]> {
@@ -32,8 +34,26 @@ export class UsersService {
 
 
   async update(id: string, data: Partial<User>): Promise<User> {
+    const before = await this.userRepository.findOne({ where: { id } })
     await this.userRepository.update(id, data)
-    return this.findOne(id)
+    const after = await this.findOne(id)
+
+    // Si cambió un campo de auth (isActive, role, password), invalidar el cache
+    // de validación de tokens y la sesión activa, así el siguiente request
+    // re-evalúa contra la DB en lugar de usar el cache de 5min.
+    const authCritical =
+      (before && before.isActive !== after.isActive) ||
+      (before && before.role !== after.role) ||
+      data.password !== undefined
+    if (authCritical) {
+      await Promise.all([
+        this.redisService.clearPattern('token:valid:*'),
+        this.redisService.del(`session:${id}`),
+        this.redisService.del(`user:email:${after.email}`),
+      ])
+    }
+
+    return after
   }
 
   async create(user: Partial<User>): Promise<User> {
@@ -59,7 +79,13 @@ export class UsersService {
 
 
   async remove(id: string): Promise<void> {
-    await this.findOne(id)
+    const user = await this.findOne(id)
     await this.userRepository.delete(id)
+    // Invalidar cache de tokens/sesión del usuario eliminado
+    await Promise.all([
+      this.redisService.clearPattern('token:valid:*'),
+      this.redisService.del(`session:${id}`),
+      this.redisService.del(`user:email:${user.email}`),
+    ])
   }
 }

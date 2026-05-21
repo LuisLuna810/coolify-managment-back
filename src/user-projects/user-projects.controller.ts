@@ -1,8 +1,9 @@
-import { Controller, Post, Delete, Get, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Patch, Delete, Get, Param, Body, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { UserProjectsService } from './user-projects.service';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserProject } from './entities/user-project.entity';
+import { AssignProjectDto, PermissionsDto } from './dto/user-project.dto';
 
 @UseGuards(RolesGuard)
 @Controller('user-projects')
@@ -11,8 +12,19 @@ export class UserProjectsController {
 
   @Roles('admin')
   @Post()
-  assign(@Body() body: { userId: string; projectId: string }): Promise<UserProject> {
-    return this.userProjectsService.assign(body.userId, body.projectId);
+  assign(@Body() body: AssignProjectDto): Promise<UserProject> {
+    const { userId, projectId, ...permissions } = body;
+    return this.userProjectsService.assign(userId, projectId, permissions);
+  }
+
+  @Roles('admin')
+  @Patch('user/:userId/project/:projectId')
+  updatePermissions(
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Body() permissions: PermissionsDto,
+  ): Promise<UserProject> {
+    return this.userProjectsService.updatePermissions(userId, projectId, permissions);
   }
 
   @Roles('admin')

@@ -14,6 +14,9 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { APP_GUARD } from '@nestjs/core';
 import { RedisModule } from './redis/redis.module';
+import { HealthModule } from './health/health.module';
+import { ContainerLogsModule } from './container-logs/container-logs.module';
+import { ArgoCDModule } from './argocd/argocd.module';
 
 @Module({
   imports: [
@@ -32,6 +35,7 @@ import { RedisModule } from './redis/redis.module';
       synchronize: true,
     }),
     RedisModule,
+    HealthModule,
     AuthModule,
     UsersModule,
     ProjectsModule,
@@ -39,6 +43,8 @@ import { RedisModule } from './redis/redis.module';
     ActionsModule,
     LogsModule,
     UserProjectsModule,
+    ContainerLogsModule,
+    ArgoCDModule,
   ],
   controllers: [AppController],
   providers: [AppService],

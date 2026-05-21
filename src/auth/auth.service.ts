@@ -17,23 +17,15 @@ export class AuthService {
   ) { }
 
   async validateUser(email: string, pass: string): Promise<User | null> {
-    // Cache key para el usuario por email
-    const userCacheKey = `user:email:${email}`;
-    
-    // Intentar obtener del cache primero
-    let user = await this.redisService.getJson<User>(userCacheKey);
-    
-    if (!user) {
-      // Si no está en cache, buscar en base de datos
-      user = await this.usersService.findByEmail(email);
-      
-      if (user) {
-        // Cachear el usuario por 5 minutos
-        await this.redisService.setJson(userCacheKey, user, 300);
-      }
-    }
-    
+    // No cacheamos al usuario completo porque contiene el hash de password
+    // y queda desincronizado si el password cambia en BD.
+    const user = await this.usersService.findByEmail(email);
+
     if (!user || !user.password) {
+      return null;
+    }
+
+    if (!user.isActive) {
       return null;
     }
 
@@ -64,7 +56,12 @@ export class AuthService {
 
     return {
       token,
-      user: payload,
+      user: {
+        id: user.id,
+        role: user.role,
+        email: user.email,
+        username: user.username,
+      },
     }
   }
 

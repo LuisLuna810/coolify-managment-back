@@ -103,11 +103,11 @@ export class TokenValidationService {
   }
 
   performLogout(response: Response): void {
-    // Limpiar la cookie del token
+    // Los atributos deben coincidir con los usados al setear la cookie en login
     response.clearCookie('token', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'none',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     });
   }
 
