@@ -5,7 +5,15 @@ import { RedisService } from '../redis/redis.service';
 @Injectable()
 export class CoolifyService {
   private readonly logger = new Logger(CoolifyService.name);
-  private readonly baseUrl = process.env.COOLIFY_URL || 'http://localhost:3000';
+  // OJO: `COOLIFY_URL` es una variable mágica que Coolify inyecta automáticamente
+  // con el FQDN del propio servicio (= URL del dashboard cuando corremos dentro
+  // de Coolify). Sobrescribe cualquier valor de la UI/.env. Por eso preferimos
+  // `COOLIFY_API_URL` que no choca con la magic. Fallback a COOLIFY_URL solo
+  // por compat con dev local (donde Coolify no aplica magic).
+  private readonly baseUrl =
+    process.env.COOLIFY_API_URL ||
+    process.env.COOLIFY_URL ||
+    'http://localhost:3000';
   private readonly apiKey = process.env.COOLIFY_API_KEY;
 
   // Cache TTLs (segundos). Cortos para que el dashboard se sienta vivo pero
