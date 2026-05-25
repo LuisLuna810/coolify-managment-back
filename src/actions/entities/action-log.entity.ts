@@ -7,8 +7,10 @@ export class ActionLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => User, { eager: true })
-  user: User;
+  // Nullable + SET NULL: si se elimina el usuario, el log queda como
+  // huérfano (sin user) en vez de bloquear el DELETE por FK.
+  @ManyToOne(() => User, { eager: true, nullable: true, onDelete: 'SET NULL' })
+  user: User | null;
 
   @ManyToOne(() => Project, { eager: true })
   project: Project;

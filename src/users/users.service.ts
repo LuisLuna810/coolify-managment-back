@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common'
+import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { User } from './entities/user.entity'
@@ -35,7 +35,21 @@ export class UsersService {
 
   async update(id: string, data: Partial<User>): Promise<User> {
     const before = await this.userRepository.findOne({ where: { id } })
-    await this.userRepository.update(id, data)
+
+    // Regla: el rol de un admin no se puede cambiar (ni demoter ni promover
+    // a otra cosa). Si querés "removerlo", desactivá o eliminá el usuario.
+    if (data.role !== undefined && before && before.role === 'admin' && data.role !== 'admin') {
+      throw new ForbiddenException('No se puede cambiar el rol de un admin')
+    }
+
+    // Defensa: si el caller mete password por el endpoint genérico, hashearlo
+    // antes de persistir (el flujo recomendado es changePassword).
+    const patch: Partial<User> = { ...data }
+    if (patch.password) {
+      patch.password = await bcrypt.hash(patch.password, 10)
+    }
+
+    await this.userRepository.update(id, patch)
     const after = await this.findOne(id)
 
     // Si cambió un campo de auth (isActive, role, password), invalidar el cache
@@ -44,7 +58,7 @@ export class UsersService {
     const authCritical =
       (before && before.isActive !== after.isActive) ||
       (before && before.role !== after.role) ||
-      data.password !== undefined
+      patch.password !== undefined
     if (authCritical) {
       await Promise.all([
         this.redisService.clearPattern('token:valid:*'),
@@ -54,6 +68,22 @@ export class UsersService {
     }
 
     return after
+  }
+
+  async changePassword(id: string, newPassword: string): Promise<void> {
+    if (!newPassword || newPassword.length < 6) {
+      throw new Error('La contraseña debe tener al menos 6 caracteres')
+    }
+    const user = await this.findOne(id)
+    const hashed = await bcrypt.hash(newPassword, 10)
+    await this.userRepository.update(id, { password: hashed })
+
+    // Invalidar cache de tokens/sesión para forzar re-login del usuario afectado.
+    await Promise.all([
+      this.redisService.clearPattern('token:valid:*'),
+      this.redisService.del(`session:${id}`),
+      this.redisService.del(`user:email:${user.email}`),
+    ])
   }
 
   async create(user: Partial<User>): Promise<User> {

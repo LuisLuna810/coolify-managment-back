@@ -31,4 +31,8 @@ export class RegisterDeveloperDto {
   @MinLength(2)
   @MaxLength(80)
   username: string;
+
+  @IsOptional()
+  @IsIn(['admin', 'developer'], { message: 'El role debe ser admin o developer' })
+  role?: 'admin' | 'developer';
 }

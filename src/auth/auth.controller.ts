@@ -57,9 +57,11 @@ export class AuthController {
     @Roles('admin')
     @Post('register-developer')
     async registerDeveloper(@Body() body: RegisterDeveloperDto) {
+        // Mantenemos el nombre del endpoint por compatibilidad con el front existente,
+        // pero acepta `role` opcional para que el admin pueda crear admins también.
         const userData = {
             ...body,
-            role: 'developer' as const,
+            role: body.role ?? ('developer' as const),
             isActive: true,
         }
         return await this.authService.register(userData)
