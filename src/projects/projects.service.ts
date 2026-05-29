@@ -154,17 +154,28 @@ export class ProjectsService implements OnModuleInit {
         ])
         .getRawAndEntities();
 
-      projects = rows.entities.map((project, idx) => ({
-        ...project,
-        permissions: {
-          canStart: rows.raw[idx]?.up_canstart ?? true,
-          canStop: rows.raw[idx]?.up_canstop ?? true,
-          canRestart: rows.raw[idx]?.up_canrestart ?? true,
-          canAccessEnvs: rows.raw[idx]?.up_canaccessenvs ?? false,
+      // OJO: como `workloads` es OneToMany y se trae con leftJoinAndSelect, un
+      // proyecto con N workloads genera N filas en rows.raw pero 1 sola entity.
+      // Indexar rows.raw por el índice de la entity desalinea los permisos al
+      // primer proyecto multi-workload. Mapeamos por project.id (1ª fila por
+      // proyecto) para que cada entity reciba SUS permisos.
+      const permsByProject = new Map<string, any>();
+      for (const row of rows.raw) {
+        if (permsByProject.has(row.project_id)) continue;
+        permsByProject.set(row.project_id, {
+          canStart: row.up_canstart ?? true,
+          canStop: row.up_canstop ?? true,
+          canRestart: row.up_canrestart ?? true,
+          canAccessEnvs: row.up_canaccessenvs ?? false,
           // Default true para asignaciones previas a la columna (NULL en SQL):
           // por producto, logs es de acceso liberal salvo que el admin lo apague.
-          canAccessLogs: rows.raw[idx]?.up_canaccesslogs ?? true,
-        },
+          canAccessLogs: row.up_canaccesslogs ?? true,
+        });
+      }
+
+      projects = rows.entities.map((project) => ({
+        ...project,
+        permissions: permsByProject.get(project.id),
       }));
 
       // Cachear por 5 minutos
